@@ -1,0 +1,27 @@
+# Large media files
+videos/
+audio/
+audio_segments/
+audio_segments_60s/
+volc_auc/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+.env.*
+
+# Temporary files
+tmp/
+*.part
+*.part-*
+*.ytdl
+
+# Screenshots (temporary)
+*.png
+
+# OS files
+.DS_Store
