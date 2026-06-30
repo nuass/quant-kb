@@ -47,7 +47,7 @@ question → KB 向量检索(top-1)
 
 ## HTTP 接口
 
-部署:`http://<KB_HOST>`(端口 80,systemd 管理)。
+部署:`http://<KB_HOST>`(端口 80,systemd 管理,具体地址不公开)。
 
 ### 1. `POST /api/v1/brain-kb/exam` — 结构化答题(自动化推荐)
 
