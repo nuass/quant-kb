@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Retry failed AUC segments. Deletes old fail JSON and re-runs."""
 import json
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+KB_HOST = os.environ.get("KB_HOST", "127.0.0.1")
+SSH_TARGET = f"root@{KB_HOST}"
 
 REMOTE_AUC_CODE = r'''
 import json
@@ -92,7 +96,7 @@ except Exception as exc:
 
 def run_remote_auc(audio_url: str, env_file: str, max_poll: int, poll_int: int) -> dict:
     proc = subprocess.run(
-        ["ssh", "root@<KB_HOST>", "python3 -", env_file, audio_url, str(max_poll), str(poll_int)],
+        ["ssh", SSH_TARGET, "python3 -", env_file, audio_url, str(max_poll), str(poll_int)],
         input=REMOTE_AUC_CODE,
         check=False,
         text=True,

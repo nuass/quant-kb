@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Finish remaining segments: lesson 4 last 3 + lesson 2 retries."""
 import json
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+KB_HOST = os.environ.get("KB_HOST", "127.0.0.1")
+SSH_TARGET = f"root@{KB_HOST}"
 
 REMOTE_AUC_CODE = r'''
 import json
@@ -92,7 +96,7 @@ except Exception as exc:
 
 def run_remote_auc(audio_url: str, env_file: str, max_poll: int = 600, poll_int: int = 5) -> dict:
     proc = subprocess.run(
-        ["ssh", "root@<KB_HOST>", "python3 -", env_file, audio_url, str(max_poll), str(poll_int)],
+        ["ssh", SSH_TARGET, "python3 -", env_file, audio_url, str(max_poll), str(poll_int)],
         input=REMOTE_AUC_CODE,
         check=False,
         text=True,
@@ -128,7 +132,7 @@ def main() -> None:
     seg_root = Path('/Users/cony.zhangbjgmail.com/dev/wq-brain/knowledge/volc_auc/segments')
     raw_root = Path('/Users/cony.zhangbjgmail.com/dev/wq-brain/knowledge/volc_auc/raw')
     env_file = "/root/xingsi-api/.env.stt"
-    url_prefix = "http://<KB_HOST>:8000/api/v1/audio"
+    url_prefix = f"http://{KB_HOST}:8000/api/v1/audio"
     remote_dir = "/root/xingsi-api/audio_temp"
 
     # Lesson 4 missing segments
@@ -149,7 +153,7 @@ def main() -> None:
         remote_name = f"brain_{lesson4_slug}_{wav.name}"
         public_url = f"{url_prefix.rstrip('/')}/{remote_name}"
         print(f"upload {wav.name}", flush=True)
-        upload_with_ssh(wav, "root@<KB_HOST>", remote_dir, remote_name)
+        upload_with_ssh(wav, SSH_TARGET, remote_dir, remote_name)
         print(f"asr {wav.name}", flush=True)
         try:
             result = run_remote_auc(public_url, env_file)

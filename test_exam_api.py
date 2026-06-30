@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """测 /exam 接口的 10 道题。"""
 import json
+import os
 import requests
 
-API = "http://<KB_HOST>/api/v1/brain-kb/exam"
+KB_HOST = os.environ.get("KB_HOST", "127.0.0.1")
+API = f"http://{KB_HOST}/api/v1/brain-kb/exam"
 
 CASES = [
     {"question":"Consultant 考试通过的 Sharpe 比率最低要求是多少？",

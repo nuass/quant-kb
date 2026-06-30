@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """测试远程知识库回答 10 道模拟题。"""
+import os
 import requests
 
-API_URL = "http://<KB_HOST>/api/v1/brain-kb/query"
+KB_HOST = os.environ.get("KB_HOST", "127.0.0.1")
+API_URL = f"http://{KB_HOST}/api/v1/brain-kb/query"
 
 QUESTIONS = [
     "Consultant 考试通过的 Sharpe 比率最低要求是多少？选项：A. 0.5 B. 0.7 C. 1.0 D. 1.25",
