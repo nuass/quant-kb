@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse
 
 # ---- Config ----
 KB_PATH = Path(__file__).parent / "BRAIN_考试知识库.md"
-TRANSCRIPT_DIR = Path(__file__).parent / "transcripts"
+TRANSCRIPT_DIR = Path(__file__).parent / "transcripts_distilled"
 INDEX_PATH = Path(__file__).parent / "kb_index.json"
 VECTORS_PATH = Path(__file__).parent / "kb_vectors.npy"
 OFFICIAL_CACHE_PATH = Path(__file__).parent / "brain_official_cache.json"
@@ -77,58 +77,55 @@ def load_chunks() -> list[dict[str, Any]]:
             "content": "\n".join(current_lines).strip(),
         })
 
-    # 2. 完整转写稿（去掉时间戳，合并成约5000字符的chunk）
-    TIME_RE = re.compile(r"^\[\d{2}:\d{2}:\d{2}\s+-\s+\d{2}:\d{2}:\d{2}\]\s*")
-    CHUNK_SIZE = 5000  # 字符
-    CHUNK_OVERLAP = 200
-
-    for md_path in sorted(list(TRANSCRIPT_DIR.glob("*.auc.md")) + list(TRANSCRIPT_DIR.glob("*.merged.md"))):
-        lesson_name = md_path.stem.split("_X")[0] if "_X" in md_path.stem else md_path.stem
+    # 2. 课程蒸馏笔记（transcripts_distilled/*.distilled.md）
+    #    每个文件切成 1 个「要点合集」chunk + N 个 QA chunk（每个 Q+A 独立检索）
+    for md_path in sorted(TRANSCRIPT_DIR.glob("*.distilled.md")):
+        lesson_name = md_path.stem.replace(".distilled", "")
+        lesson_name = lesson_name.split("_X")[0] if "_X" in lesson_name else lesson_name
         lesson_name = lesson_name.replace("-", " ")
         raw = md_path.read_text(encoding="utf-8")
 
-        # 提取所有段落（去掉时间戳）
-        segments: list[tuple[str, str]] = []  # (time_range, text)
+        # 切分 ## 要点 与 ## QA 两段
+        sec, bullets, qa_blocks = None, [], []
+        cur_q, cur_a = None, []
         for line in raw.splitlines():
-            line = line.strip()
-            if not line:
+            s = line.rstrip()
+            if s.startswith("## 要点"):
+                sec = "bullet"; continue
+            if s.startswith("## QA"):
+                if cur_q is not None:
+                    qa_blocks.append((cur_q, "\n".join(cur_a).strip()))
+                    cur_q, cur_a = None, []
+                sec = "qa"; continue
+            if sec == "bullet" and s.startswith("- "):
+                v = s[2:].strip()
+                if v and v != "（无）":
+                    bullets.append(v)
+            elif sec == "qa":
+                if s.startswith("### Q:"):
+                    if cur_q is not None:
+                        qa_blocks.append((cur_q, "\n".join(cur_a).strip()))
+                    cur_q = s[len("### Q:"):].strip()
+                    cur_a = []
+                elif s.startswith("A:") and cur_q is not None:
+                    cur_a.append(s[len("A:"):].strip())
+                elif cur_q is not None and s:
+                    cur_a.append(s)
+        if cur_q is not None:
+            qa_blocks.append((cur_q, "\n".join(cur_a).strip()))
+
+        if bullets:
+            chunks.append({
+                "title": f"{lesson_name} - 要点",
+                "content": "\n".join(f"- {b}" for b in bullets),
+            })
+        for q, a in qa_blocks:
+            if not q or q == "（无）":
                 continue
-            m = TIME_RE.match(line)
-            if m:
-                time_range = m.group(0).strip().rstrip("]") + "]"
-                body = line[m.end():].strip()
-                if body:
-                    segments.append((time_range, body))
-            elif line.startswith("# "):
-                continue  # skip title line
-            else:
-                segments.append(("", line))
-
-        if not segments:
-            continue
-
-        # 合并成chunk
-        buf_text = ""
-        buf_start = ""
-        for time_range, body in segments:
-            if not buf_start:
-                buf_start = time_range
-            if buf_text:
-                buf_text += "\n"
-            buf_text += body
-            if len(buf_text) >= CHUNK_SIZE:
-                title = f"{lesson_name} {buf_start}" if buf_start else lesson_name
-                chunks.append({"title": title, "content": buf_text})
-                # overlap
-                if len(buf_text) > CHUNK_OVERLAP:
-                    buf_text = buf_text[-CHUNK_OVERLAP:]
-                else:
-                    buf_text = ""
-                buf_start = time_range
-
-        if buf_text:
-            title = f"{lesson_name} {buf_start}" if buf_start else lesson_name
-            chunks.append({"title": title, "content": buf_text})
+            chunks.append({
+                "title": f"{lesson_name} - {q}",
+                "content": f"Q: {q}\nA: {a}",
+            })
 
     return chunks
 
